@@ -74,19 +74,51 @@ struct json_object* json_object_from_file(const char *filename)
     return NULL;
   }
   if(!(pb = printbuf_new())) {
-    close(fd);
+    _close(fd);
     MC_ERROR("json_object_from_file: printbuf_new failed\n");
     return NULL;
   }
-  while((ret = read(fd, buf, JSON_FILE_BUF_SIZE)) > 0) {
+  while((ret = _read(fd, buf, JSON_FILE_BUF_SIZE)) > 0) {
     printbuf_memappend(pb, buf, ret);
   }
-  close(fd);
+  _close(fd);
   if(ret < 0) {
     MC_ABORT("json_object_from_file: error reading file %s: %s\n",
 	     filename, strerror(errno));
     printbuf_free(pb);
     return NULL;
+  }
+  obj = json_tokener_parse(pb->buf);
+  printbuf_free(pb);
+  return obj;
+}
+
+struct json_object* json_object_from_wfile(const wchar_t *filename)
+{
+  struct printbuf *pb;
+  struct json_object *obj;
+  char buf[JSON_FILE_BUF_SIZE];
+  int fd, ret;
+
+  if((fd = _wopen(filename, O_RDONLY)) < 0) {
+    MC_ERROR("json_object_from_file: error reading file %s: %s\n",
+	     filename, strerror(errno));
+    return (struct json_object*)error_ptr(-1);
+  }
+  if(!(pb = printbuf_new())) {
+    _close(fd);
+    MC_ERROR("json_object_from_file: printbuf_new failed\n");
+    return (struct json_object*)error_ptr(-1);
+  }
+  while((ret = _read(fd, buf, JSON_FILE_BUF_SIZE)) > 0) {
+    printbuf_memappend(pb, buf, ret);
+  }
+  _close(fd);
+  if(ret < 0) {
+    MC_ABORT("json_object_from_file: error reading file %s: %s\n",
+	     filename, strerror(errno));
+    printbuf_free(pb);
+    return (struct json_object*)error_ptr(-1);
   }
   obj = json_tokener_parse(pb->buf);
   printbuf_free(pb);
@@ -113,15 +145,15 @@ int json_object_to_file_ext(char *filename, struct json_object *obj, int flags)
   }
 
   if(!(json_str = json_object_to_json_string_ext(obj,flags))) {
-    close(fd);
+    _close(fd);
     return -1;
   }
 
   wsize = (unsigned int)(strlen(json_str) & UINT_MAX); /* CAW: probably unnecessary, but the most 64bit safe */
   wpos = 0;
   while(wpos < wsize) {
-    if((ret = write(fd, json_str + wpos, wsize-wpos)) < 0) {
-      close(fd);
+    if((ret = _write(fd, json_str + wpos, wsize-wpos)) < 0) {
+      _close(fd);
       MC_ERROR("json_object_to_file: error writing file %s: %s\n",
 	     filename, strerror(errno));
       return -1;
@@ -131,7 +163,7 @@ int json_object_to_file_ext(char *filename, struct json_object *obj, int flags)
     wpos += (unsigned int)ret;
   }
 
-  close(fd);
+  _close(fd);
   return 0;
 }
 
@@ -147,14 +179,14 @@ int json_parse_int64(const char *buf, int64_t *retval)
 	int64_t num64;
 	const char *buf_skip_space;
 	int orig_has_neg;
-	int _errno;
+	int __errno;
 	errno = 0; // sscanf won't always set errno, so initialize
 	if (sscanf(buf, "%" SCNd64, &num64) != 1)
 	{
 		MC_DEBUG("Failed to parse, sscanf != 1\n");
 		return 1;
 	}
-	_errno = errno;
+	__errno = errno;
 	buf_skip_space = buf;
 	orig_has_neg = 0;
 	// Skip leading spaces
@@ -171,7 +203,7 @@ int json_parse_int64(const char *buf, int64_t *retval)
 	if (buf_skip_space[0] == '0' && buf_skip_space[1] == '\0')
 		orig_has_neg = 0; // "-0" is the same as just plain "0"
 	
-	if (_errno != ERANGE)
+	if (__errno != ERANGE)
 	{
 		char buf_cmp[100];
 		char *buf_cmp_start = buf_cmp;
@@ -199,10 +231,10 @@ int json_parse_int64(const char *buf, int64_t *retval)
 		    )
 		   )
 		{
-			_errno = ERANGE;
+			__errno = ERANGE;
 		}
 	}
-	if (_errno == ERANGE)
+	if (__errno == ERANGE)
 	{
 		if (orig_has_neg)
 			num64 = INT64_MIN;
