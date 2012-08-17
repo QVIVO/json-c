@@ -503,7 +503,7 @@ double json_object_get_double(struct json_object *jso)
   case json_type_double:
     return jso->o.c_double;
   case json_type_int:
-    return jso->o.c_int64;
+    return (double)jso->o.c_int64;
   case json_type_boolean:
     return jso->o.c_boolean;
   case json_type_string:
