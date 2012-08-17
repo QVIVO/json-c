@@ -41,3 +41,4 @@
 *.o
 /libjson-c.la
 /libjson.la
+.DS_Store
