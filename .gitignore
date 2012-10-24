@@ -37,8 +37,12 @@
 /tests/test_printbuf
 /Debug
 /Release
+/lib
+/obj
 *.lo
 *.o
+*.user
+*.suo
 /libjson-c.la
 /libjson.la
 .DS_Store
